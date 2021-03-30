@@ -279,3 +279,38 @@ Then, the call-by-value thread is executed with ID at a value of 0. Then, the ca
 This illustrates the effect of passing a value by reference : when the data to which the reference refers changes before the thread is executed,
 those changes will be visible to the thread. We will see other examples of such behavior later in the course,
 as this is a primary source of concurrency bugs
+
+5. Starting a Thread with Variadic Templates and Member Functions
+Passing Arguments using a Variadic Template
+In the previous section, we have seen that one way to pass arguments in to the thread function is to package them in a class using the function
+call operator. Even though this worked well, it would be very cumbersome to write a special class every time we need to pass data to a thread. 
+We can also use a Lambda that captures the arguments and then calls the function. But there is a simpler way: 
+The thread constructor may be called with a function and all its arguments. 
+That is possible because the thread constructor is a variadic template that takes multiple arguments.
+With variadic templates it is possible to include any number of arguments of any type.
+In example1.5.1.cpp, a first thread object is constructed by passing it the function printID and an integer argument. 
+Then, a second thread object is constructed with a function printIDAndName, which requires an integer and a string parameter. 
+If only a single argument was provided to the thread when calling printIDAndName, a compiler error would occur 
+(see std::thread t3 in the example) - which is the same type checking we would get when calling the function directly.
+
+There is one more difference between calling a function directly and passing it to a thread: With the former, arguments may be passed by value,
+by reference or by using move semantics - depending on the signature of the function. When calling a function using a variadic template, 
+the arguments are by default either moved or copied - depending on wether they are rvalues or lvalues. 
+There are ways however which allow us to overwrite this behavior. If you want to move an lvalue for example, we can call std::move. 
+In the example1.5.2.cpp, two threads are started, each with a different string as a parameter. With t1, the string name1 is copied by value, 
+which allows us to print name1 even after join has been called. The second string name2 is passed to the thread function using move semantics,
+which means that it is not available any more after join has been called on t2.
+
+When passing the string variable name to the thread function, we need to explicitly mark it as a reference, 
+so the compiler will treat it as such. This can be done by using the std::ref function. 
+In the console output it becomes clear that the string has been successfully modified within the thread function before being passed to main.
+
+For calling member functions, the std::thread function requires an additional argument for the object on which to invoke the member function.
+In example1.5.4.cpp, the Vehicle object v1 is passed to the thread function by value, 
+thus a copy is made which does not affect the „original“ living in the main thread. 
+Changes to its member variable _id will thus not show when printing calling printID() later in main. 
+The second Vehicle object v2 is instead passed by reference. Therefore, changes to its _id variable will also be visible in the main thread.
+In example1.5.4.cpp, we have to ensure that the existence of v2 outlives the completion of the thread t2 
+- otherwise there will be an attempt to access an invalidated memory address. 
+An alternative is to use a heap-allocated object and a reference-counted pointer such as std::shared_ptr<Vehicle> 
+to ensure that the object lives as long as it takes the thread to finish its work. example1.5.5.cpp shows how this can be implemented:
